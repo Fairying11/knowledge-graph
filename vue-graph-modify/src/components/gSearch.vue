@@ -28,7 +28,7 @@ export default {
       const params = {
         keyword: this.input
       }
-	  axios.post('http://localhost:8080/star/attribute', params).then(res => {
+	  axios.post('http://127.0.0.1:5001/star/attribute', params).then(res => {
 	    if (res.status === 200) {
 	      this.data = res.data.respon
           this.$emit('getData', this.data)
@@ -36,7 +36,7 @@ export default {
 	    }
 	  }).catch(err => {
 	    console.log('err', err)
-	    
+
 	  })
     },
     querySearch (queryString, cb) {

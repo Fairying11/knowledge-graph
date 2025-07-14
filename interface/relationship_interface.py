@@ -1,42 +1,48 @@
 #encoding=utf-8
 from flask import Flask
-from flask_restful import reqparse, Api, Resource ,request
-import time,json,datetime
+from flask_restful import reqparse, Api, Resource, request
+import time, json, datetime
+from flask_cors import CORS
+from neo4j import GraphDatabase
+
 # Flask相关变量声明
 app = Flask(__name__)
 api = Api(app)
-from flask_cors import CORS
 CORS(app)
 CORS(app, resources={r'/*': {'origins': '*'}})
-from py2neo import Graph,Node,Relationship
 
-# 修改连接方式
-graph = Graph("http://localhost:7474", auth=("neo4j", "12345678"))
+# 创建图数据库连接
+uri = "bolt://localhost:7687"  # 根据实际情况修改
+driver = GraphDatabase.driver(uri, auth=("neo4j", "12345678"))
 
 class BaikeData(Resource):
     @app.route('/', methods=["POST"])
     def post(self):
         data = request.get_json()
         if 'keyword' in data.keys():
-            # 节点名称
             node_name = data['keyword']
-            # 运行cypher查询
-            query = """
-            MATCH (a {name: $node_name})-[r]->(b)
-            RETURN ID(r) AS id, a.name AS source_name, type(r) AS type, b.name AS target_name, ID(a) AS source_id, ID(b) AS target_id
-            """
-            result = graph.run(query, node_name=node_name)
-            # 将结果转换为字典
-            result_dict = {"links": []}
-            for record in result:
-                result_dict["links"].append({
-                    "id": record["id"],
-                    "source_name": record["source_name"],
-                    "type": record["type"],
-                    "target_name": record["target_name"],
-                    "source_id": record["source_id"],
-                    "target_id": record["target_id"]
-                })
+
+            def get_relations(tx):
+                query = """
+                MATCH (a {name: $node_name})-[r]->(b)
+                RETURN ID(r) AS id, a.name AS source_name, type(r) AS type, b.name AS target_name, ID(a) AS source_id, ID(b) AS target_id
+                """
+                result = tx.run(query, node_name=node_name)
+                result_dict = {"links": []}
+                for record in result:
+                    result_dict["links"].append({
+                        "id": record["id"],
+                        "source_name": record["source_name"],
+                        "type": record["type"],
+                        "target_name": record["target_name"],
+                        "source_id": record["source_id"],
+                        "target_id": record["target_id"]
+                    })
+                return result_dict
+
+            with driver.session() as session:
+                result_dict = session.read_transaction(get_relations)
+
             links = result_dict['links']
             json_result = {}
             lista = []
@@ -75,8 +81,8 @@ class BaikeData(Resource):
             json_result['rootId'] = str(id)
             json_result['nodes'] = lista
             json_result['lines'] = listb
-            print(json.dumps(json_result,ensure_ascii=False))
-            response_json = {"status":200,"respon":json_result}
+            print(json.dumps(json_result, ensure_ascii=False))
+            response_json = {"status": 200, "respon": json_result}
             return response_json
 
 # 设置路由，即路由地址为http://127.0.0.1:5000/baike
@@ -84,4 +90,5 @@ api.add_resource(BaikeData, "/relationship")
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', debug=True,port=5001)
+    app.run(host='0.0.0.0', debug=True, port=5001)
+    driver.close()

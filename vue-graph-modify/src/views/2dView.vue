@@ -37,7 +37,7 @@ export default {
       const params = {
         keyword: this.getInput
       }
-      axios.post('http://localhost:8080/relationship', params).then(res => {
+      axios.post('http://127.0.0.1:5001/relationship', params).then(res => {
         if (res.status === 200) {
           this.graphJsonData = res.data.respon
           this.$refs.seeksRelationGraph.setJsonData(this.graphJsonData, (seeksRGGraph) => {
@@ -46,7 +46,7 @@ export default {
         }
       }).catch(err => {
         console.log('err', err)
-        
+
       })
     },
     onNodeClick (nodeObject, $event) {
